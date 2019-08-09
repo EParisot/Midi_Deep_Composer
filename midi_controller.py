@@ -15,7 +15,6 @@ from rtmidi.midiconstants import NOTE_ON, NOTE_OFF
 
 seq_len = 32
 bpm = 120/60
-tracks = (0, )
 instru = instrument.Piano()
 
 # MIDI Setup
@@ -32,7 +31,7 @@ logging.basicConfig(level=logging.DEBUG)
 # Load data from training
 print("\nLoading, please wait...\n", flush=True)
 
-vocab_file = "Piano_vocab.npy"
+vocab_file = "Piano_50.npy"
 vocab = np.load(os.path.join("vocab_save", vocab_file), allow_pickle=True)
 notes_vocab = vocab[0]
 durations_vocab = vocab[1]
@@ -41,7 +40,7 @@ velocities_vocab = vocab[3]
 
 print("\nVocab loaded\n", flush=True)
 
-model_file = "Piano.h5"
+model_file = "Piano_50.h5"
 model = load_model(os.path.join("weight_save", model_file))
 model._make_predict_function()
 print("\nModel %s loaded\n" % model_file, flush=True)
@@ -71,76 +70,105 @@ class MidiInputHandler(object):
         event.channel = 1
         event.pitch = note
         event.velocity = velocity
-        self.track.events.append(event)
         if status & 0xF0 == NOTE_ON:
             event.type = "NOTE_ON"
+            self.track.events.append(event)
         else:   
             event.type = "NOTE_OFF"
+            self.track.events.append(event)
             stream = midi.translate.midiTrackToStream(self.track).flat.notesAndRests
             if len(stream) >= seq_len:
+                print("Go Predict", flush=True)
                 self.process_stream(stream[-seq_len:])
-        print("[%s] @%0.6f %r" % (self.port, self._wallclock, message), flush=True)
+                self.track = midi.MidiTrack(1)
+        #print("[%s] @%0.6f %r" % (self.port, self._wallclock, message), flush=True)
 
     def process_stream(self, stream):
-        notes = [[] for track in tracks]
-        durations = [[] for track in tracks]
-        offsets = [[] for track in tracks]
-        velocities = [[] for track in tracks]
-        for track, _ in enumerate(tracks):
-            last_offset = 0
-            for elem in stream:
-                if isinstance(elem, note.Note):
-                    notes[track].append([str(elem.pitch)])
-                    durations[track].append(elem.quarterLength)
-                    offsets[track].append(elem.offset - last_offset)
-                    velocities[track].append(elem.volume.velocity)
-                elif isinstance(elem, chord.Chord):
-                    notes[track].append([str(n.nameWithOctave) for n in elem.pitches])
-                    durations[track].append(elem.quarterLength)
-                    offsets[track].append(elem.offset - last_offset)
-                    velocities[track].append(elem.volume.velocity)
-                elif isinstance(elem, note.Rest):
-                    notes[track].append([elem.name])
-                    durations[track].append(elem.quarterLength)
-                    offsets[track].append(elem.offset - last_offset)
-                    velocities[track].append(0)
-                last_offset = elem.offset
+        notes = []
+        durations = []
+        offsets = []
+        velocities = []
+        last_offset = 0
+        for elem in stream:
+            if isinstance(elem, note.Note):
+                notes.append([str(elem.pitch)])
+                durations.append(elem.quarterLength)
+                offsets.append(elem.offset - last_offset)
+                velocities.append(elem.volume.velocity)
+            elif isinstance(elem, chord.Chord):
+                notes.append([str(n.nameWithOctave) for n in elem.pitches])
+                durations.append(elem.quarterLength)
+                offsets.append(elem.offset - last_offset)
+                velocities.append(elem.volume.velocity)
+            elif isinstance(elem, note.Rest):
+                notes.append([elem.name])
+                durations.append(elem.quarterLength)
+                offsets.append(elem.offset - last_offset)
+                velocities.append(0)
+            last_offset = elem.offset
         # Categorical
-        cat_notes = [[] for track in tracks]
-        cat_durations = [[] for track in tracks]
-        cat_offsets = [[] for track in tracks]
-        cat_velocities = [[] for track in tracks]
-        for track, _ in enumerate(tracks):
-            for elem in notes[track]:
-                int_note = notes_vocab[track].index(",".join(elem))
-                cat = np.zeros((len(notes_vocab[track])))
-                cat[int_note] = 1
-                cat_notes[track].append(cat)
-            for elem in durations[track]:
-                int_duration = 1#durations_vocab[track].index(elem)
-                cat = np.zeros((len(durations_vocab[track])))
-                cat[int_duration] = 1
-                cat_durations[track].append(cat)
-            for elem in offsets[track]:
-                int_offset = 1#offsets_vocab[track].index(elem)
-                cat = np.zeros((len(offsets_vocab[track])))
-                cat[int_offset] = 1
-                cat_offsets[track].append(cat)
-            for elem in velocities[track]:
-                int_velocity = 100#velocities_vocab[track].index(elem)
-                cat = np.zeros((len(velocities_vocab[track])))
-                cat[int_velocity] = 1
-                cat_velocities[track].append(cat)
+        cat_notes = []
+        cat_durations = []
+        cat_offsets = []
+        cat_velocities = []
+
+        for elem in notes:
+            int_note = notes_vocab[0].index(",".join(elem))
+            cat = np.zeros((len(notes_vocab[0])))
+            cat[int_note] = 1
+            cat_notes.append(cat)
+        for elem in durations:
+            int_duration = 1#durations_vocab.index(elem)
+            cat = np.zeros((len(durations_vocab[0])))
+            cat[int_duration] = 1
+            cat_durations.append(cat)
+        for elem in offsets:
+            int_offset = 1#offsets_vocab.index(elem)
+            cat = np.zeros((len(offsets_vocab[0])))
+            cat[int_offset] = 1
+            cat_offsets.append(cat)
+        for elem in velocities:
+            int_velocity = 50#velocities_vocab.index(elem)
+            cat = np.zeros((len(velocities_vocab[0])))
+            cat[int_velocity] = 1
+            cat_velocities.append(cat)
         # merge
         x = [cat_notes, cat_durations, cat_offsets, cat_velocities]
-        # Prediction
-        pred = model.predict([np.array(x[i]) for i in range(len(x))])
+        # make seq_len predictions from seed
+        preds = []
+        for _ in range(seq_len):
+            pred = model.predict([np.array([x[i]]) for i in range(len(x))])
+            _note = [pred[i] for i in range(0, len(pred), 4)]
+            _duration = [pred[i] for i in range(1, len(pred), 4)]
+            _offset = [pred[i] for i in range(2, len(pred), 4)]
+            _velocity = [pred[i] for i in range(3, len(pred), 4)]
+            cat_note = np.zeros((len(notes_vocab[0])))
+            _note = np.argmax(_note)
+            cat_note[_note] = 1
+            cat_duration = np.zeros((len(durations_vocab[0])))
+            _duration = np.argmax(_duration)
+            cat_duration[_duration] = 1
+            cat_offset = np.zeros((len(offsets_vocab[0])))
+            _offset = np.argmax(_offset)
+            cat_offset[_offset] = 1
+            cat_velocity = np.zeros((len(velocities_vocab[0])))
+            _velocity = np.argmax(_velocity)
+            cat_velocity[_velocity] = 1
+            x[0] = x[0][1:]
+            x[0] = list(x[0]) + [cat_note]
+            x[1] = x[1][1:]
+            x[1] = list(x[1]) + [cat_duration]
+            x[2] = x[2][1:]
+            x[2] = list(x[2]) + [cat_offset]
+            x[3] = x[3][1:]
+            x[3] = list(x[3]) + [cat_velocity]
+            preds.append((cat_note, cat_duration, cat_offset, cat_velocity))
         # process predicted note
-        for track, _ in enumerate(tracks):
-            str_note = notes_vocab[track][np.argmax(pred[track][0][0])]
-            _duration = durations_vocab[track][np.argmax(pred[track][0][1])]
-            _offset = offsets_vocab[track][np.argmax(pred[track][0][2])]
-            _velocity = velocities_vocab[track][np.argmax(pred[track][0][3])]
+        for pred in preds:
+            str_note = notes_vocab[0][np.argmax(pred[0])]
+            _duration = durations_vocab[0][np.argmax(pred[1])]
+            _offset = offsets_vocab[0][np.argmax(pred[2])]
+            _velocity = velocities_vocab[0][np.argmax(pred[3])]
             if len(str_note.split(",")) > 1:
                 _chord = chord.Chord(str_note.split(","))
                 _chord.quarterLength = _duration
@@ -148,7 +176,6 @@ class MidiInputHandler(object):
                 _chord.volume.velocity = _velocity
                 eventList = midi.translate.chordToMidiEvents(_chord)
                 for event in eventList:
-                    print(event, flush=True)
                     message = [0, 0, 0]
                     if event.type == "NOTE_ON": 
                         message[0] = NOTE_ON
@@ -156,6 +183,11 @@ class MidiInputHandler(object):
                         message[0] = NOTE_OFF
                     message[1] = event.pitch
                     message[2] = event.velocity
+                    if event.type == "DeltaTime":
+                        message[0] = NOTE_ON
+                        message[1] = 21
+                        message[2] = 0
+                        time.sleep(event.time/1000)
                     midiout.send_message(message)
             else:
                 if str_note != "rest":
@@ -165,30 +197,38 @@ class MidiInputHandler(object):
                     _note.volume.velocity = _velocity
                     eventList = midi.translate.noteToMidiEvents(_note)
                     for event in eventList:
-                        print(event, flush=True)
-                    message = [0, 0, 0]
-                    if event.type == "NOTE_ON": 
-                        message[0] = NOTE_ON
-                    elif event.type == "NOTE_OFF":
-                        message[0] = NOTE_OFF
-                    message[1] = event.pitch
-                    message[2] = event.velocity
-                    midiout.send_message(message)
+                        message = [0, 0, 0]
+                        if event.type == "NOTE_ON": 
+                            message[0] = NOTE_ON
+                        elif event.type == "NOTE_OFF":
+                            message[0] = NOTE_OFF
+                        message[1] = event.pitch
+                        message[2] = event.velocity
+                        if event.type == "DeltaTime":
+                            message[0] = NOTE_ON
+                            message[1] = 21
+                            message[2] = 0
+                            time.sleep(event.time/1000)
+                        midiout.send_message(message)
                 else:
                     _rest = note.Rest()
                     _rest.quarterLength = _duration
                     _rest.offset = _offset
                     eventList = midi.translate.noteToMidiEvents(_rest)
                     for event in eventList:
-                        print(event, flush=True)
-                    message = [0, 0, 0]
-                    if event.type == "NOTE_ON": 
-                        message[0] = NOTE_ON
-                    elif event.type == "NOTE_OFF":
-                        message[0] = NOTE_OFF
-                    message[1] = event.pitch
-                    message[2] = event.velocity
-                    midiout.send_message(message)
+                        message = [0, 0, 0]
+                        if event.type == "NOTE_ON": 
+                            message[0] = NOTE_ON
+                        elif event.type == "NOTE_OFF":
+                            message[0] = NOTE_OFF
+                        message[1] = event.pitch
+                        message[2] = event.velocity
+                        if event.type == "DeltaTime":
+                            message[0] = NOTE_ON
+                            message[1] = 21
+                            message[2] = 0
+                            time.sleep(event.time/1000)
+                        midiout.send_message(message)
 
         
 # Prompts user for MIDI input port, unless a valid port number or name
