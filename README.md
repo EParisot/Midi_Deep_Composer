@@ -5,9 +5,9 @@ Use ML to compose music (polyphonic, multitrack, midi input)
 https://soundcloud.com/klhnikov/sets/ai-lstm-generated-piano-parts
 
 # Magic Piano : play 32 notes, the piano answers...
-'''
+```
 python Magic_Piano.py
-'''
+```
 
 ## Data:
 For each track, for each note, chord or rest, we used the pitch, duration, offset and velocity as "one-hot encoded" values.
