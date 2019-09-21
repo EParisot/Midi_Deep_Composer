@@ -1,3 +1,4 @@
 python-rtmidi
 music21
+pygame
 keras

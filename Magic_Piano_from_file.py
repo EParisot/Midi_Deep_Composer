@@ -2,8 +2,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 import sys
 import os
-import time
-from collections import deque
+
 import numpy as np
 from keras.models import load_model
 
