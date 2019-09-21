@@ -6,8 +6,15 @@ https://soundcloud.com/klhnikov/sets/ai-lstm-generated-piano-parts
 
 # Magic Piano : play 32 notes, the piano answers...
 ```
-python Magic_Piano.py
+python Magic_Piano_from_midi_keyboard.py
+
+or 
+
+python Magic_Piano_from_file.py [MIDIFILE]
 ```
+Warning, you can only put 32 notes in the file...
+To do so, you can use this service, fill every note and save your song to a midi file : 
+https://musiclab.chromeexperiments.com/Song-Maker
 
 ## Data:
 For each track, for each note, chord or rest, we used the pitch, duration, offset and velocity as "one-hot encoded" values.
