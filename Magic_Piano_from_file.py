@@ -72,22 +72,37 @@ cat_offsets = [[] for track in tracks]
 cat_velocities = [[] for track in tracks]
 for track, _ in enumerate(tracks):
     for elem in notes[track]:
-        int_note = notes_vocab[track].index(",".join(elem))
+        try:
+            int_note = notes_vocab[track].index(",".join(elem))
+        except ValueError:
+            n = 1
+            while ",".join(elem[:-n]) not in notes_vocab[track]:
+                n += 1
+            int_note = notes_vocab[track].index(",".join(elem[:-n]))
         cat = np.zeros((len(notes_vocab[track])))
         cat[int_note] = 1
         cat_notes[track].append(cat)
     for elem in durations[track]:
-        int_duration = durations_vocab[track].index(elem)
+        try:
+            int_duration = durations_vocab[track].index(elem)
+        except ValueError:
+            int_duration = (np.abs(np.asarray(durations_vocab[track]) - elem)).argmin()
         cat = np.zeros((len(durations_vocab[track])))
         cat[int_duration] = 1
         cat_durations[track].append(cat)
     for elem in offsets[track]:
-        int_offset = offsets_vocab[track].index(elem)
+        try:
+            int_offset = offsets_vocab[track].index(elem)
+        except ValueError:
+            int_offset = (np.abs(np.asarray(offsets_vocab[track]) - elem)).argmin()
         cat = np.zeros((len(offsets_vocab[track])))
         cat[int_offset] = 1
         cat_offsets[track].append(cat)
     for elem in velocities[track]:
-        int_velocity = velocities_vocab[track].index(elem)
+        try:
+            int_velocity = velocities_vocab[track].index(elem)
+        except ValueError:
+            int_velocity = (np.abs(np.asarray(velocities_vocab[track]) - elem)).argmin()
         cat = np.zeros((len(velocities_vocab[track])))
         cat[int_velocity] = 1
         cat_velocities[track].append(cat)

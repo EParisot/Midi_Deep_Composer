@@ -113,22 +113,36 @@ class MidiInputHandler(object):
         cat_velocities = []
 
         for elem in notes:
-            int_note = notes_vocab[0].index(",".join(elem))
+            try:
+                int_note = notes_vocab[0].index(",".join(elem))
+            except ValueError:
+                n = 1
+                while ",".join(elem[:-n]) not in notes_vocab[0]:
+                    n += 1
             cat = np.zeros((len(notes_vocab[0])))
             cat[int_note] = 1
             cat_notes.append(cat)
         for elem in durations:
-            int_duration = 1#durations_vocab.index(elem)
+            try:
+                int_duration = durations_vocab[0].index(elem)
+            except ValueError:
+                int_duration = (np.abs(np.asarray(durations_vocab[0]) - elem)).argmin()
             cat = np.zeros((len(durations_vocab[0])))
             cat[int_duration] = 1
             cat_durations.append(cat)
         for elem in offsets:
-            int_offset = 1#offsets_vocab.index(elem)
+            try:
+                int_offset = offsets_vocab[0].index(elem)
+            except ValueError:
+                int_offset = (np.abs(np.asarray(offsets_vocab[0]) - elem)).argmin()
             cat = np.zeros((len(offsets_vocab[0])))
             cat[int_offset] = 1
             cat_offsets.append(cat)
         for elem in velocities:
-            int_velocity = 50#velocities_vocab.index(elem)
+            try:
+                int_velocity = velocities_vocab[0].index(elem)
+            except ValueError:
+                int_velocity = (np.abs(np.asarray(velocities_vocab[0]) - elem)).argmin()
             cat = np.zeros((len(velocities_vocab[0])))
             cat[int_velocity] = 1
             cat_velocities.append(cat)
