@@ -14,7 +14,7 @@ tracks = (0,)
 instru = instrument.Piano()
 
 # Load data from training
-print("\nLoading, please wait...\n", flush=True)
+logging.info("Loading, please wait...")
 
 vocab_file = "Piano_50.npy"
 vocab = np.load(os.path.join("vocab_save", vocab_file), allow_pickle=True)
@@ -23,13 +23,13 @@ durations_vocab = vocab[1]
 offsets_vocab = vocab[2]
 velocities_vocab = vocab[3]
 
-logging.info("\nVocab loaded\n")
+logging.info("Vocab loaded")
 
 model_file = "Piano_50.h5"
 model = load_model(os.path.join("weight_save", model_file))
 model._make_predict_function()
 
-logging.info("\nModel %s loaded\n" % model_file)
+logging.info("Model %s loaded" % model_file)
 
 if len(sys.argv) < 2 or len(sys.argv[1]) == 0:
     logging.error("No args")
