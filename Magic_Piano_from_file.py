@@ -24,7 +24,7 @@ velocities_vocab = vocab[3]
 
 logging.info("Vocab loaded")
 
-model_file = "Piano_50.h5"
+model_file = "Piano_20.h5"
 model = load_model(os.path.join("weight_save", model_file))
 model._make_predict_function()
 

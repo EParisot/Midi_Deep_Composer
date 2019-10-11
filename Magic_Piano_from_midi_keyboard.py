@@ -40,7 +40,7 @@ velocities_vocab = vocab[3]
 
 print("\nVocab loaded\n", flush=True)
 
-model_file = "Piano_50.h5"
+model_file = "Piano_20.h5"
 model = load_model(os.path.join("weight_save", model_file))
 model._make_predict_function()
 print("\nModel %s loaded\n" % model_file, flush=True)
